@@ -1,8 +1,9 @@
 import express from 'express';
 import { collection, getDocs, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
-
-import { db } from './firebaseConfig.js';
 import xlsxPopulate from 'xlsx-populate';
+
+import { db, storage } from './firebaseConfig.js';
+import { connectStorageEmulator } from 'firebase/storage';
 
 const app = express();
 
@@ -40,12 +41,6 @@ app.post('/api/create-sections-file/:id', async (req, res) => {
 
     let details = []
     const { central_reading, code, stationing_name } = stationingDoc.data();
-    if (!stationing_name || typeof stationing_name !== 'string' ||
-        !code || typeof code !== 'string' ||
-        !central_reading || typeof central_reading !== 'number') {
-      res.status(400).send('Datos de la seccion no validos');
-      return;
-    }
 
     for (const detailsDoc of detailsDocs.docs) {
       details.push(detailsDoc.data())
@@ -59,7 +54,7 @@ app.post('/api/create-sections-file/:id', async (req, res) => {
     });
   }
 
-  if(sections.length === 0) {
+  if (sections.length === 0) {
     res.status(404).send('No hay datos para exportar')
     return;
   }
@@ -108,9 +103,33 @@ app.post('/api/create-sections-file/:id', async (req, res) => {
   printFormat.cell('A1').value(sectionsPrintFormat)
   drawFormat.cell('A1').value(sectionsDrawFormat)
 
-  await workbook.toFileAsync(`./secciones-${projetcSnap.data().name}.xlsx`);
+  await workbook.toFileAsync(`./secciones_${id}.xlsx`);
 
   res.status(200).send('Achivo creado')
+});
+
+app.get('/api/download-file/', (req, res) => {
+  let {id, filename} = req.query;
+
+  xlsxPopulate.fromFileAsync(`${id}.xlsx`)
+    .then(workbook => {
+      return workbook.outputAsync()
+    })
+    .then(data => {
+       // Set the output file name.
+       res.attachment(`${filename}.xlsx`);
+
+       // Send the workbook.
+       res.send(data);
+    })
+    .catch(error => {
+      console.error('error: ', error)
+      res.status(500).send({
+        message: 'Error al descargar el archivo',
+        error: error
+      })
+    })
+
 });
 
 app.get('/health', (req, res) => {
