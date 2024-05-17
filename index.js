@@ -2,8 +2,7 @@ import express from 'express';
 import { collection, getDocs, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
 import xlsxPopulate from 'xlsx-populate';
 
-import { db, storage } from './firebaseConfig.js';
-import { connectStorageEmulator } from 'firebase/storage';
+import { db } from './firebaseConfig.js';
 
 const app = express();
 
