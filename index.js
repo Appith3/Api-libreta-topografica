@@ -79,6 +79,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
     const printFormat = workbook.sheet(0).name('Formato');
     const drawFormat = workbook.addSheet('Secciones');
 
+    // FIXME: wrong formats
     for (const section of sections) {
       const { stationingName, code, details } = section;
 
@@ -166,7 +167,6 @@ app.get('/api/download-file/', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.send('OK')
-  console.log('OK')
 })
 
 app.listen(port, () => {
