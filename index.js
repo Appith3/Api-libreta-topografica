@@ -6,10 +6,10 @@ import { db } from './firebaseConfig.js';
 
 const app = express();
 
-const port = parseInt(process.env.PORT) || process.argv[3] || 8085;
+const port = parseInt(process.env.PORT) || 8085;
 
-app.post('/api/create-sections-file/:id', async (req, res) => {
-  const id = req.params.id;
+app.post('/api/create-sections-file/', async (req, res) => {
+  const id = req.query.id;
 
   if (!id || typeof id !== 'string') {
     res.status(400).send('ID de proyecto no valido');
@@ -102,7 +102,10 @@ app.post('/api/create-sections-file/:id', async (req, res) => {
   printFormat.cell('A1').value(sectionsPrintFormat)
   drawFormat.cell('A1').value(sectionsDrawFormat)
 
-  await workbook.toFileAsync(`./secciones_${id}.xlsx`);
+  await workbook.toFileAsync(`./secciones_${id}.xlsx`)
+  .then(data => {
+    console.log('data: ', data)
+  });
 
   res.status(200).send('Achivo creado')
 });
@@ -110,7 +113,7 @@ app.post('/api/create-sections-file/:id', async (req, res) => {
 app.get('/api/download-file/', (req, res) => {
   let {id, filename} = req.query;
 
-  xlsxPopulate.fromFileAsync(`${id}.xlsx`)
+  xlsxPopulate.fromFileAsync(`secciones_${id}.xlsx`)
     .then(workbook => {
       return workbook.outputAsync()
     })
