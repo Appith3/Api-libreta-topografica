@@ -13,7 +13,7 @@ async function getProjectById(projectId) {
     throw new Error('ID del proyecto no válido');
   }
 
-  const projectRef = doc(collection(db, 'example_projects'), projectId);
+  const projectRef = doc(collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}`), projectId);
   const projectSnapshot = await getDoc(projectRef);
 
   if (!projectSnapshot.exists) {
@@ -26,7 +26,7 @@ async function getProjectById(projectId) {
 async function getStationingData(projectId) {
   const project = await getProjectById(projectId);
 
-  const stationingRef = collection(db, `example_projects/${projectId}/stationing`);
+  const stationingRef = collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}/${projectId}/stationing`);
   const stationingQuery = query(stationingRef, where('is_complete', '==', true), orderBy('stationing_name', 'asc'));
   const stationingSnapshots = await getDocs(stationingQuery);
 
@@ -34,7 +34,7 @@ async function getStationingData(projectId) {
 }
 
 async function getStationingDetails(stationingId, projectId) {
-  const detailsRef = collection(db, `example_projects/${projectId}/stationing/${stationingId}/details`);
+  const detailsRef = collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}/${projectId}/stationing/${stationingId}/details`);
   const detailsQuery = query(detailsRef, orderBy('distance', 'asc'));
   const detailsSnapshots = await getDocs(detailsQuery);
 
