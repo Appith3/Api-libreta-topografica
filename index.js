@@ -33,7 +33,12 @@ async function getStationingData(projectId) {
   const stationingQuery = query(stationingRef, where('is_complete', '==', true), orderBy('stationing_name', 'asc'));
   const stationingSnapshots = await getDocs(stationingQuery);
 
-  return stationingSnapshots.docs.map(doc => doc.data());
+  return stationingSnapshots.docs.map(doc => {
+    return {
+      id: doc.id,
+      ...doc.data(),
+    };
+  });
 }
 
 async function getStationingDetails(stationingId, projectId) {
@@ -79,41 +84,42 @@ app.post('/api/create-sections-file/', async (req, res) => {
     const printFormat = workbook.sheet(0).name('Formato');
     const drawFormat = workbook.addSheet('Secciones');
 
-    // FIXME: wrong formats
-    for (const section of sections) {
-      const { stationingName, code, details } = section;
+    let sectionsDrawFormat = []
+    let sectionsPrintFormat = []
 
+    for (const section of sections) {
+      let { stationingName, code, details } = section
       const rows = details.length + 1;
 
       // DrawFormat
       for (let row = 0; row < rows; row++) {
         if (row === 0 || details[row - 1] === -1) {
-          drawFormat.cell(`A${row + 1}`).value([stationingName, '']);
-          drawFormat.cell(`B${row + 1}`).value([0, 0]);
+          sectionsDrawFormat.push([stationingName, '']);
+          sectionsDrawFormat.push([0, 0]);
         } else {
-          const { distance, slope } = details[row - 1];
-
+          let { distance, slope } = details[row - 1];
           if (distance !== -1 || row === details.length) {
-            drawFormat.cell(`A${row + 1}`).value([distance, slope]);
+            sectionsDrawFormat.push([distance, slope])
           }
         }
       }
-
       // PrintFormat
       for (let row = 0; row < rows; row++) {
         if (row === 0 || details[row - 1] === -1) {
-          printFormat.cell(`A${row + 1}`).value([stationingName, , , 1000, code]);
+          sectionsPrintFormat.push([stationingName, , , 1000, code]);
         } else {
           const { detailName, distance, slope } = details[row - 1];
-
           if (distance !== -1 || row === details.length) {
             distance < 0
-              ? printFormat.cell(`A${row + 1}`).value([, distance, , slope, detailName])
-              : printFormat.cell(`A${row + 1}`).value([, , distance, slope, detailName]);
+              ? sectionsPrintFormat.push([, distance, , slope, detailName])
+              : sectionsPrintFormat.push([, , distance, slope, detailName])
           }
         }
       }
     }
+
+    printFormat.cell('A1').value(sectionsPrintFormat)
+    drawFormat.cell('A1').value(sectionsDrawFormat)
 
     await workbook.toFileAsync(`./secciones_${projectId}.xlsx`);
 
@@ -122,7 +128,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
     console.error(error);
     res.status(500).send({
       error,
-      message: 'Error al crear el archivo' 
+      message: 'Error al crear el archivo'
     });
   }
 });
