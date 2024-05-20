@@ -2,6 +2,7 @@ import express from 'express';
 import { collection, getDocs, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
 import xlsxPopulate from 'xlsx-populate';
 import fs from 'fs';
+import cors from 'cors';
 
 import { db } from './firebaseConfig.js';
 
@@ -42,6 +43,14 @@ async function getStationingDetails(stationingId, projectId) {
 
   return detailsSnapshots.docs.map(doc => doc.data());
 }
+
+app.use(cors({
+  // origin: ['http://localhost:3000', 'https://your-production-app.com'], // List of allowed origins
+  origin: '*',
+  credentials: true, // Allow cookies to be sent with CORS requests
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'My-Custom-Header'], // Allowed request headers
+}));
 
 app.post('/api/create-sections-file/', async (req, res) => {
 
