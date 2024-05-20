@@ -10,6 +10,7 @@ const port = parseInt(process.env.PORT) || 8085;
 
 async function getProjectById(projectId) {
   if (!projectId || typeof projectId !== 'string') {
+    console.error('ID del proyecto no válido');
     throw new Error('ID del proyecto no válido');
   }
 
@@ -17,6 +18,7 @@ async function getProjectById(projectId) {
   const projectSnapshot = await getDoc(projectRef);
 
   if (!projectSnapshot.exists) {
+    console.error('Proyecto no encontrado');
     throw new Error('Proyecto no encontrado');
   }
 
@@ -49,6 +51,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
     const stationingData = await getStationingData(projectId);
 
     if (stationingData.length === 0) {
+      console.error('No hay datos para crear el archivo');
       res.status(404).send('No hay datos para crear el archivo');
       return;
     }
@@ -120,6 +123,7 @@ app.get('/api/download-file/', (req, res) => {
   const filePath = `./secciones_${id}.xlsx`;
 
   if (!fs.existsSync(filePath)) {
+    console.error('Archivo no encontrado');
     res.status(404).send('Archivo no encontrado');
     return;
   }
@@ -127,6 +131,7 @@ app.get('/api/download-file/', (req, res) => {
   const fileStats = fs.statSync(filePath);
 
   if (fileStats.size > 10 * 1024 * 1024) { // 10 MB limit
+    console.error('El archivo es demasiado grande, limite de 10 MB');
     res.status(413).send('El archivo es demasiado grande, limite de 10 MB');
     return;
   }
