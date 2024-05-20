@@ -4,6 +4,7 @@ import xlsxPopulate from 'xlsx-populate';
 import fs from 'fs';
 
 import { db } from './firebaseConfig.js';
+// TODO: implement firesbae storage
 
 const app = express();
 const port = parseInt(process.env.PORT) || 8085;
