@@ -7,7 +7,7 @@ import cors from 'cors';
 import { db } from './firebaseConfig.js';
 
 const app = express();
-const port = parseInt(process.env.PORT) || 8085;
+const port = parseInt(process.env.PORT) || 8089;
 
 async function getProjectById(projectId) {
   if (!projectId || typeof projectId !== 'string') {
@@ -57,6 +57,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'My-Custom-Header'], // Allowed request headers
 }));
 
+// TODO: write better response messages
 app.post('/api/create-sections-file/', async (req, res) => {
 
   const projectId = req.query.id;
@@ -76,6 +77,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
         stationingName: stationing.stationing_name,
         code: stationing.code,
         centralReading: stationing.central_reading,
+        notes: stationing.notes,
         details,
       };
     }));
@@ -88,31 +90,40 @@ app.post('/api/create-sections-file/', async (req, res) => {
     let sectionsPrintFormat = []
 
     for (const section of sections) {
-      let { stationingName, code, details } = section
+      let { stationingName, code, details, notes } = section
       const rows = details.length + 1;
 
-      // DrawFormat
-      for (let row = 0; row < rows; row++) {
-        if (row === 0 || details[row - 1] === -1) {
-          sectionsDrawFormat.push([stationingName, '']);
-          sectionsDrawFormat.push([0, 0]);
-        } else {
-          let { distance, slope } = details[row - 1];
-          if (distance !== -1 || row === details.length) {
-            sectionsDrawFormat.push([distance, slope])
+      if (notes) {
+        console.log('la seecion tiene notas')
+        sectionsPrintFormat.push([stationingName, , , 1000, code]);
+        sectionsPrintFormat.push(notes)
+        sectionsDrawFormat.push([stationingName, '']);
+        sectionsDrawFormat.push([0, 0]);
+      } else {
+        // DrawFormat
+        for (let row = 0; row < rows; row++) {
+          if (row === 0 || details[row - 1] === -1) {
+            sectionsDrawFormat.push([stationingName, '']);
+            sectionsDrawFormat.push([0, 0]);
+          } else {
+            let { distance, slope } = details[row - 1];
+            if (distance !== -1 || row === details.length) {
+              sectionsDrawFormat.push([distance, slope])
+            }
           }
         }
-      }
-      // PrintFormat
-      for (let row = 0; row < rows; row++) {
-        if (row === 0 || details[row - 1] === -1) {
-          sectionsPrintFormat.push([stationingName, , , 1000, code]);
-        } else {
-          const { detailName, distance, slope } = details[row - 1];
-          if (distance !== -1 || row === details.length) {
-            distance < 0
-              ? sectionsPrintFormat.push([, distance, , slope, detailName])
-              : sectionsPrintFormat.push([, , distance, slope, detailName])
+        // PrintFormat
+        for (let row = 0; row < rows; row++) {
+          if (row === 0 || details[row - 1] === -1) {
+            sectionsPrintFormat.push([stationingName, , , 1000, code]);
+          } else {
+            const { detailName, distance, slope } = details[row - 1];
+
+            if (distance !== -1 || row === details.length) {
+              distance < 0
+                ? sectionsPrintFormat.push([, distance, , slope, detailName])
+                : sectionsPrintFormat.push([, , distance, slope, detailName])
+            }
           }
         }
       }
