@@ -2,12 +2,15 @@ import express from 'express';
 import { collection, getDocs, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
 import xlsxPopulate from 'xlsx-populate';
 import fs from 'fs';
+import bodyParser from 'body-parser';
 
 import { db } from './firebaseConfig.js';
 // TODO: implement firesbae storage
 
 const app = express();
 const port = parseInt(process.env.PORT) || 8085;
+
+app.use(bodyParser.json());
 
 async function getProjectById(projectId) {
   if (!projectId || typeof projectId !== 'string') {
@@ -113,6 +116,37 @@ app.post('/api/create-sections-file/', async (req, res) => {
       message: 'Error al crear el archivo' 
     });
   }
+});
+
+app.post('/api/create-vegetation-file', async (req, res) => {
+  const specimens = req.body; // Access JSON data from request body
+
+  const workbook = await xlsxPopulate.fromBlankAsync();
+  const sheet = workbook.sheet(0).name('hoja 1')
+  let row = 0;
+
+  for(const specimen of specimens) {
+    const { classification, cup_diameter, height, id, trunk_diameter } = specimen;
+    let cupDiameter = '-'
+    let trunkDiameter = '-'
+
+
+    if(cup_diameter) cupDiameter = cup_diameter
+    if(trunk_diameter) trunkDiameter = trunk_diameter
+
+    sheet.cell(`A${row + 1}`).value(Number(id));
+    sheet.cell(`B${row + 1}`).value(classification);
+    sheet.cell(`C${row + 1}`).value(height);
+    sheet.cell(`D${row + 1}`).value(trunkDiameter);
+    sheet.cell(`E${row + 1}`).value(cupDiameter);
+
+    row++
+    console.log('row: ', row)
+  }
+
+  await workbook.toFileAsync(`./vegetacion.xlsx`);
+
+  res.status(200).send({ message: 'JSON received successfully' });
 });
 
 app.get('/api/download-file/', (req, res) => {
