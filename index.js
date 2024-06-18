@@ -3,25 +3,28 @@ import { collection, getDocs, query, orderBy, where, doc, getDoc } from 'firebas
 import xlsxPopulate from 'xlsx-populate';
 import fs from 'fs';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 
 // TODO: implement firesbae storage
 import { db } from './firebaseConfig.js';
 import getCurrentDate from './utils/getCurrentDate.js';
 
 const app = express();
-const port = parseInt(process.env.PORT) || 8085;
+const port = parseInt(process.env.PORT) || 8089;
 
 app.use(bodyParser.json());
 
 async function getProjectById(projectId) {
   if (!projectId || typeof projectId !== 'string') {
+    console.error('ID del proyecto no válido');
     throw new Error('ID del proyecto no válido');
   }
 
-  const projectRef = doc(collection(db, 'example_projects'), projectId);
+  const projectRef = doc(collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}`), projectId);
   const projectSnapshot = await getDoc(projectRef);
 
   if (!projectSnapshot.exists) {
+    console.error('Proyecto no encontrado');
     throw new Error('Proyecto no encontrado');
   }
 
@@ -31,21 +34,35 @@ async function getProjectById(projectId) {
 async function getStationingData(projectId) {
   const project = await getProjectById(projectId);
 
-  const stationingRef = collection(db, `example_projects/${projectId}/stationing`);
+  const stationingRef = collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}/${projectId}/stationing`);
   const stationingQuery = query(stationingRef, where('is_complete', '==', true), orderBy('stationing_name', 'asc'));
   const stationingSnapshots = await getDocs(stationingQuery);
 
-  return stationingSnapshots.docs.map(doc => doc.data());
+  return stationingSnapshots.docs.map(doc => {
+    return {
+      id: doc.id,
+      ...doc.data(),
+    };
+  });
 }
 
 async function getStationingDetails(stationingId, projectId) {
-  const detailsRef = collection(db, `example_projects/${projectId}/stationing/${stationingId}/details`);
+  const detailsRef = collection(db, `${process.env.FIREBASE_ROOT_COLLECTION}/${projectId}/stationing/${stationingId}/details`);
   const detailsQuery = query(detailsRef, orderBy('distance', 'asc'));
   const detailsSnapshots = await getDocs(detailsQuery);
 
   return detailsSnapshots.docs.map(doc => doc.data());
 }
 
+app.use(cors({
+  // origin: ['http://localhost:3000', 'https://your-production-app.com'], // List of allowed origins
+  origin: '*',
+  credentials: true, // Allow cookies to be sent with CORS requests
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'My-Custom-Header'], // Allowed request headers
+}));
+
+// TODO: write better response messages
 app.post('/api/create-sections-file/', async (req, res) => {
 
   const projectId = req.query.id;
@@ -54,6 +71,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
     const stationingData = await getStationingData(projectId);
 
     if (stationingData.length === 0) {
+      console.error('No hay datos para crear el archivo');
       res.status(404).send('No hay datos para crear el archivo');
       return;
     }
@@ -64,6 +82,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
         stationingName: stationing.stationing_name,
         code: stationing.code,
         centralReading: stationing.central_reading,
+        notes: stationing.notes,
         details,
       };
     }));
@@ -72,40 +91,51 @@ app.post('/api/create-sections-file/', async (req, res) => {
     const printFormat = workbook.sheet(0).name('Formato');
     const drawFormat = workbook.addSheet('Secciones');
 
-    for (const section of sections) {
-      const { stationingName, code, details } = section;
+    let sectionsDrawFormat = []
+    let sectionsPrintFormat = []
 
+    for (const section of sections) {
+      let { stationingName, code, details, notes } = section
       const rows = details.length + 1;
 
-      // DrawFormat
-      for (let row = 0; row < rows; row++) {
-        if (row === 0 || details[row - 1] === -1) {
-          drawFormat.cell(`A${row + 1}`).value([stationingName, '']);
-          drawFormat.cell(`B${row + 1}`).value([0, 0]);
-        } else {
-          const { distance, slope } = details[row - 1];
-
-          if (distance !== -1 || row === details.length) {
-            drawFormat.cell(`A${row + 1}`).value([distance, slope]);
+      if (notes) {
+        console.log('la seecion tiene notas')
+        sectionsPrintFormat.push([stationingName, , , 1000, code]);
+        sectionsPrintFormat.push(notes)
+        sectionsDrawFormat.push([stationingName, '']);
+        sectionsDrawFormat.push([0, 0]);
+      } else {
+        // DrawFormat
+        for (let row = 0; row < rows; row++) {
+          if (row === 0 || details[row - 1] === -1) {
+            sectionsDrawFormat.push([stationingName, '']);
+            sectionsDrawFormat.push([0, 0]);
+          } else {
+            let { distance, slope } = details[row - 1];
+            if (distance !== -1 || row === details.length) {
+              sectionsDrawFormat.push([distance, slope])
+            }
           }
         }
-      }
+        // PrintFormat
+        for (let row = 0; row < rows; row++) {
+          if (row === 0 || details[row - 1] === -1) {
+            sectionsPrintFormat.push([stationingName, , , 1000, code]);
+          } else {
+            const { detailName, distance, slope } = details[row - 1];
 
-      // PrintFormat
-      for (let row = 0; row < rows; row++) {
-        if (row === 0 || details[row - 1] === -1) {
-          printFormat.cell(`A${row + 1}`).value([stationingName, , , 1000, code]);
-        } else {
-          const { detailName, distance, slope } = details[row - 1];
-
-          if (distance !== -1 || row === details.length) {
-            distance < 0
-              ? printFormat.cell(`A${row + 1}`).value([, distance, , slope, detailName])
-              : printFormat.cell(`A${row + 1}`).value([, , distance, slope, detailName]);
+            if (distance !== -1 || row === details.length) {
+              distance < 0
+                ? sectionsPrintFormat.push([, distance, , slope, detailName])
+                : sectionsPrintFormat.push([, , distance, slope, detailName])
+            }
           }
         }
       }
     }
+
+    printFormat.cell('A1').value(sectionsPrintFormat)
+    drawFormat.cell('A1').value(sectionsDrawFormat)
 
     await workbook.toFileAsync(`./secciones_${projectId}.xlsx`);
 
@@ -114,7 +144,7 @@ app.post('/api/create-sections-file/', async (req, res) => {
     console.error(error);
     res.status(500).send({
       error,
-      message: 'Error al crear el archivo' 
+      message: 'Error al crear el archivo'
     });
   }
 });
@@ -156,6 +186,7 @@ app.get('/api/download-file/', (req, res) => {
   const filePath = `./secciones_${id}.xlsx`;
 
   if (!fs.existsSync(filePath)) {
+    console.error('Archivo no encontrado');
     res.status(404).send('Archivo no encontrado');
     return;
   }
@@ -163,6 +194,7 @@ app.get('/api/download-file/', (req, res) => {
   const fileStats = fs.statSync(filePath);
 
   if (fileStats.size > 10 * 1024 * 1024) { // 10 MB limit
+    console.error('El archivo es demasiado grande, limite de 10 MB');
     res.status(413).send('El archivo es demasiado grande, limite de 10 MB');
     return;
   }
@@ -215,7 +247,6 @@ app.get('/api/download-vegetation-file/', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.send('OK')
-  console.log('OK')
 })
 
 app.listen(port, () => {
