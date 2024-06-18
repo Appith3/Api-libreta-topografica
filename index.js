@@ -4,8 +4,9 @@ import xlsxPopulate from 'xlsx-populate';
 import fs from 'fs';
 import bodyParser from 'body-parser';
 
-import { db } from './firebaseConfig.js';
 // TODO: implement firesbae storage
+import { db } from './firebaseConfig.js';
+import getCurrentDate from './utils/getCurrentDate.js';
 
 const app = express();
 const port = parseInt(process.env.PORT) || 8085;
@@ -119,20 +120,20 @@ app.post('/api/create-sections-file/', async (req, res) => {
 });
 
 app.post('/api/create-vegetation-file', async (req, res) => {
-  const specimens = req.body; // Access JSON data from request body
+  const specimens = req.body;
+  const currentDate = getCurrentDate()
 
   const workbook = await xlsxPopulate.fromBlankAsync();
-  const sheet = workbook.sheet(0).name('hoja 1')
+  const sheet = workbook.sheet(0).name('hoja 1');
   let row = 0;
 
-  for(const specimen of specimens) {
+  for (const specimen of specimens) {
     const { classification, cup_diameter, height, id, trunk_diameter } = specimen;
-    let cupDiameter = '-'
-    let trunkDiameter = '-'
+    let cupDiameter = '-';
+    let trunkDiameter = '-';
 
-
-    if(cup_diameter) cupDiameter = cup_diameter
-    if(trunk_diameter) trunkDiameter = trunk_diameter
+    if (cup_diameter) cupDiameter = cup_diameter;
+    if (trunk_diameter) trunkDiameter = trunk_diameter;
 
     sheet.cell(`A${row + 1}`).value(Number(id));
     sheet.cell(`B${row + 1}`).value(classification);
@@ -140,13 +141,13 @@ app.post('/api/create-vegetation-file', async (req, res) => {
     sheet.cell(`D${row + 1}`).value(trunkDiameter);
     sheet.cell(`E${row + 1}`).value(cupDiameter);
 
-    row++
-    console.log('row: ', row)
+    row++;
   }
 
-  await workbook.toFileAsync(`./vegetacion.xlsx`);
+  const filename = `vegetacion_${currentDate}.xlsx`;
+  await workbook.toFileAsync(`./${filename}`);
 
-  res.status(200).send({ message: 'JSON received successfully' });
+  res.status(200).send({ message: 'File created successfully' });
 });
 
 app.get('/api/download-file/', (req, res) => {
@@ -182,7 +183,34 @@ app.get('/api/download-file/', (req, res) => {
         message: 'Error al descargar el archivo'
       })
     })
+});
 
+app.get('/api/download-vegetation-file/', (req, res) => {
+  const currentDate = getCurrentDate();
+
+  const filePath = `./vegetacion_${currentDate}.xlsx`;
+
+  if (!fs.existsSync(filePath)) {
+    res.status(404).send('Archivo no encontrado');
+    return;
+  }
+
+  xlsxPopulate.fromFileAsync(filePath)
+    .then(workbook => {
+      return workbook.outputAsync()
+    })
+    .then(data => {
+      res.attachment(`vegetacion_${currentDate}.xlsx`);
+      res.contentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(data);
+    })
+    .catch(error => {
+      console.error('error: ', error)
+      res.status(500).send({
+        error,
+        message: 'Error al descargar el archivo'
+      })
+    })
 });
 
 app.get('/health', (req, res) => {
